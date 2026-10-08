@@ -268,6 +268,8 @@ ldt_err:    ldi   0             ; write termination (just in case)
             ;
             ; Read a line from a file into the text buffer.  A line 
             ; ends with a carriage return, a line feed, or both.
+            ; Tabs are expanded to spaces, and any other control
+            ; characters are skipped.
             ;
             ; Parameters
             ;   rf - pointer to text buffer
@@ -286,16 +288,23 @@ readln1:    call  readbyte      ; read a byte
             lbdf  readlneof     ; jump on eof
 
             plo   re            ; keep a copy
+            smi   32            ; look for anything below a space
+            lbdf  readln3       ; process printable characters
+            
+            glo   re            ; recover control character
             smi   10            ; look for line feed
             lbz   readlnlf      
             smi   3             ; look for carriage return
             lbz   readlncr      
-            smi   19            ; look for anything else below a space
-            lbdf  readln3       ; process printable characters
+            glo   re
+            smi   9             ; look for tab
+            lbnz  readln1       ; skip over any other control characters 
             
-            glo   rc            ; skip over any other control characters 
-            lbz   readln1       ; before text, after text they end the line
-            lbr   readln4
+            ldi   1             ; flag tab in rc.1, until next tab stop
+            phi   rc
+            ldi   ' '           ; a tab becomes spaces in the text buffer
+            plo   re
+            lbr   readln3
 
             ; a line feed after the carriage return that ended the  
             ; previous line belongs to that line, any other ends this one
@@ -336,15 +345,24 @@ readlnput:  glo   re            ; recover byte
             inc   rc            ; increment character count
             glo   rc            ; check for text longer than max line size
             smi   MAX_LINE      ; read up to MAX_LINE characters
-            lbnz  readln1       ; keep going until line is full
+            lbz   readlnsplt    ; split line once it is full
             
-            push  rf            ; split long text into individual lines
+            ghi   rc            ; check for tab being expanded
+            lbz   readln1       ; if not, keep going until line is full
+            glo   rc            ; tab stops are every 4 characters
+            ani   3
+            lbnz  readlnput     ; put spaces until next tab stop
+            phi   rc            ; then clear tab flag 
+            lbr   readln1       ; and keep going
+            
+readlnsplt: push  rf            ; split long text into individual lines
             load  rf, rd_eol
             ldi   2             ; newline may come next, if line was full
             str   rf
 
 readlnend:  pop   rf            ; recover text buffer pointer            
 readln4:    ldi   0             ; signal valid read
+            phi   rc            ; make sure tab flag is clear
 readlncnt:  shr                 ; shift into DF
             return              ; and return to caller
 readlneof:  ldi   1             ; signal eof

@@ -144,6 +144,8 @@ Text Limits
 -----------
 * Lines can have up to 124 characters per line
 * Tabs are defined as 4 character tab stops (1, 5, 9, etc.)
+* Tab characters in a file are replaced by spaces up to the next tab stop when the file is loaded
+* Other control characters in a file are removed when the file is loaded
   
 File Limits
 -----------
