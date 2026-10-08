@@ -41,7 +41,7 @@
             proc  do_kilo
       
             ; read characters until ctrl+q is typed  
-c_loop:     call  get_key         ; get a keyvalue             
+c_loop:     call  K_READ          ; get a keyvalue             
             str   r2              ; save character at M(Xs)
 
             ; Check for printable or control char
@@ -270,24 +270,10 @@ c_end:      call  do_end
             lbr   c_update
 
 c_pgup:     call  do_pgup
-
-            load  rf, e_state     ; check for key buffer
-            ldn   rf
-            ani   KBIO_BIT        ; zero all but kbio bit
-            lbz   cpup_nobuf      ; skip flush if no buffer in use
-            call  flush_keys      ; flush the key buffer            
-
-cpup_nobuf: lbr   c_update      
+            lbr   c_update      
 
 c_pgdn:     call  do_pgdn
-            
-            load  rf, e_state     ; check for key buffer
-            ldn   rf
-            ani   KBIO_BIT        ; zero all but kbio bit
-            lbz   cpdn_nobuf       ; skip flush if no buffer in use
-            call  flush_keys      ; flush the key buffer            
-            
-cpdn_nobuf: lbr   c_update
+            lbr   c_update
 
 c_unkn:     lbr   c_loop          ; continue processing                   
 

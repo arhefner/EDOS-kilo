@@ -65,8 +65,7 @@
             proc  begin_kilo
                  
             ;------ ELF-DOS turns the serial echo off when it boots, so
-            ;------ the console is already in raw mode.  The key buffer 
-            ;------ I/O bit is left clear, so keys are read by the kernel.
+            ;------ the console is already in raw mode.
 
             ;------ Load file to edit
             call  load_file       ; file text buffer

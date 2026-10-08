@@ -69,7 +69,7 @@
 ; Bit 5 - Mode bit, true = overwrite mode, false = insert mode
 ; Bit 4 - New File bit, true if file is new
 ; Bit 3 - Status bit, true if status message needs update
-; Bit 2 - Buffered I/O bit - true if serial I/O can be buffered
+; Bit 2 - (Not used)
 ; Bit 1 - Buffer Changed bit, true if buffer needs to be saved
 ; Bit 0 - Error bit, true indincates a program error occured
 ;-------------------------------------------------------------------------------
@@ -83,8 +83,6 @@
 #define NEWFILE_MASK  $EF
 #define STATUS_BIT    $08
 #define STATUS_MASK   $F7
-#define KBIO_BIT      $04
-#define KBIO_MASK     $FB
 #define BUFFER_CHG    $02
 #define BUFFER_MASK   $FD
 #define ERROR_BIT     $01
@@ -100,11 +98,6 @@
 ;---- Mask for clearing refresh and status bits at same time (screen updated)
 #define SCREEN_MASK   $B7
 
-
-;-------------------------------------------------------------------------------
-; Circular Key Buffer Size
-;-------------------------------------------------------------------------------
-#define KEY_BUF_SIZE   32
 
 ;-------------------------------------------------------------------------------
 ; Utility routines used by kilo editor
@@ -177,10 +170,6 @@
 ; Key handler routines used by kilo editor
 ;-------------------------------------------------------------------------------
             
-            extrn   get_key
-            extrn   flush_keys
-            extrn   keytail
-            extrn   keybuf
             extrn   do_kilo
             extrn   do_home
             extrn   do_mode

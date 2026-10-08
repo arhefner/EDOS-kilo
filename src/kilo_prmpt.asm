@@ -311,28 +311,22 @@ dfl_skip:   clc                   ; clear DF to continue after save
             lbr   dpg_skip        ; everything else is ignored
 
 dpg_bot:    call  do_bottom       ; move to bottom
-            lbr   dpg_done        ; no need to flush buffer (done by next_spill)
+            lbr   dpg_done
             
 dpg_top:    call  do_top          ; move to top 
-            lbr   dpg_done        ; no need to flush buffer (done by prev_spill)
+            lbr   dpg_done
 
 dpg_down:   call  do_pgdn         ; scroll down    
-            lbr   dpg_flush       ; flush key buffer if needed
+            lbr   dpg_done
  
 dpg_up:     call  do_pgup         ; scroll up
-            lbr   dpg_flush       ; flush key buffer if needed
+            lbr   dpg_done
 
 dpg_rdrw:   load  rf, e_state     ; get editor state byte
             ldn   rf 
             ori   REFRESH_BIT     ; set refresh bit to redraw page 
             str   rf              ; update editor state byte   
             
-dpg_flush:  load  rf, e_state     ; check for key buffer
-            ldn   rf
-            ani   KBIO_BIT        ; zero all but kbio bit
-            lbz   dpg_done        ; just exit, if no buffer in use
-            call  flush_keys      ; flush the key buffer            
-
 dpg_done:   clc                   ; clear DF to indicate success
             return
             

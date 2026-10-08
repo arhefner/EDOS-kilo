@@ -236,8 +236,6 @@ nsp_size:   phi   rb                  ; set rb.1 to new size
 
             call  set_row_offset      ; set row offset for the top of screen
             call  set_cursor
-
-            call  flush_keys          ; flush the key buffer                                           
                         
             clc                       ; clear DF flag for return
             lbr   nsp_done
@@ -304,8 +302,6 @@ psp_load:   load  rf, spill_msg       ; show a message
 psp_size:   phi   rb                ; set rb.1 to new size
             call  put_line_buffer   ; put current line in line buffer
             call  scroll_down       ; set top row to new value
-    
-            call  flush_keys        ; flush the key buffer                                           
 
             clc                     ; clear DF flag for return
             lbr   psp_done          ; exit routine

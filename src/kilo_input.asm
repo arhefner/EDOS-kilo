@@ -48,7 +48,7 @@
             call  set_status
             call  prt_status      
                         
-            call  get_key       ; get a keyvalue response
+            call  K_READ        ; get a keyvalue response
             
             stxd                ; save char on stack
             call  kilo_status   ; restore status message
@@ -65,17 +65,17 @@
             smi   27            ; check for escape character (ANSI sequence)
             lbnz  dc_no 
             
-            call  get_key       ; eat ansi sequences
+            call  K_READ        ; eat ansi sequences
             
             smi   '['           ; check for csi escape sequence
             lbnz  dc_no         ; Anything but <Esc>[ is not ANSI, so done
                     
-            call  get_key       ; eat next character
+            call  K_READ        ; eat next character
             
             smi   'A'           ; check for 3 character sequence (arrows)
             lbdf  dc_no         ; A and above are 3 character, so we are done
             
-            call  get_key       ; eat closing ~ for 4 char sequence (PgUp, PgDn, Home, End)
+            call  K_READ        ; eat closing ~ for 4 char sequence (PgUp, PgDn, Home, End)
 
 dc_no:      clc                 ; DF = 0, means No response
             lbr   dc_exit
@@ -113,7 +113,7 @@ di_read:    copy  rb, rf        ; restore input prompt from copy
             call  set_input     ; show prompt with current input
             call  prt_status      
 
-            call  get_key       ; get a key value response
+            call  K_READ        ; get a key value response
 
             str   r2            ; save at M(X) 
             smi   32            ; check for control character (below space)
@@ -135,13 +135,13 @@ di_read:    copy  rb, rf        ; restore input prompt from copy
 di_ctrl:    ldx                 ; get character
             smi   27            ; check for escape sequence
             lbnz  di_end        ; any other control char is fine
-            call  get_key       ; get next character in escape seqence
+            call  K_READ        ; get next character in escape seqence
             smi   '['           ; check for ANSI csi sequence
             lbnz  di_end        ; anything else is two chracter escape
-            call  get_key       ; get next character of ANSI sequence
+            call  K_READ        ; get next character of ANSI sequence
             smi   'A'           ; check for 3 character sequence
             lbdf  di_end        ; A and above are 3 character sequences
-            call  get_key       ; else, get closing ~ for 4 char sequence
+            call  K_READ        ; else, get closing ~ for 4 char sequence
             
 di_end:     call  get_cursor    ; restore cursor after questions
             call  move_cursor   ; position cursor

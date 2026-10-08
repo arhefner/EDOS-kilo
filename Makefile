@@ -13,7 +13,7 @@ LFLAGS   ?= -b -be
 # kilo_data.prg must be last: the text buffer starts where the program
 # ends and grows upward from there.
 MODULES = kilo kilo_util kilo_cfg kilo_line kilo_str kilo_buf kilo_keys \
-	kilo_text kilo_move kilo_edit kilo_input kilo_kbio kilo_prmpt \
+	kilo_text kilo_move kilo_edit kilo_input kilo_prmpt \
 	kilo_file kilo_spill kilo_dos kilo_data
 
 PRGS = $(patsubst %,src/%.prg,$(MODULES))

@@ -77,8 +77,6 @@ sup_x_ok:   call  set_col_offset  ; set the column offset
             call  set_row_offset  ; set row offset to current line
 no_upscrl:  call  set_cursor      ; update cursor position
 
-            call  flush_keys      ; flush the key buffer                                           
-
             pop  r9               ; restore registers
             pop  rf 
             return
@@ -152,8 +150,6 @@ sdn_x_ok:   call  set_col_offset  ; set the column offset
             pop   r8              ; restore r8 after arithmetic
 
 no_dnscrl:  call  set_cursor      ; adjust the cursor position
-
-            call  flush_keys      ; flush the key buffer                                           
 
             pop   r8              ; restore registers used
             pop   r9  
