@@ -5,6 +5,8 @@ Platform
 --------
 The ELF-DOS kilo editor runs on an 1802 based Microcomputer running the ELF-DOS operating system, with an ANSI (VT100 style) terminal as the console. ELF-DOS runs on the same hardware as Elf/OS, such as the [Pico/Elf](http://www.elf-emulation.com/picoelf.html) by Mike Riley or the [1802-Mini](https://github.com/dmadole/1802-Mini) by David Madole.
 
+The editor takes the screen size from ELF-DOS. Run `TERMSIZE` first (a line in `AUTOEXEC.BAT` will do) so that ELF-DOS knows the real size of the terminal. Without it the editor assumes a screen of 24 rows by 80 columns. The widest screen the editor uses is 132 columns.
+
 Usage
 -----
 ```

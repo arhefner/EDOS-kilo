@@ -37,78 +37,49 @@
             ;-------------------------------------------------------
             ; Name: set_window_size
             ;
-            ; Get the screen size using the ANSI cursor commands, 
-            ; and set the pos_y and pos_x byte values.
+            ; Get the screen size from ELF-DOS and set the size_h and
+            ; size_w byte values.  The size is the one TERMSIZE gave
+            ; the kernel.  A dimension the kernel does not know keeps
+            ; its default, 24 rows or 80 columns, and a screen wider
+            ; than MAX_WIDTH is treated as MAX_WIDTH columns wide.
+            ;
+            ; The editor does not query the terminal itself.  The
+            ; reply to a cursor position query arrives back to back,
+            ; and a bit-banged console drops a digit of it unless
+            ; the read loop is very short.
             ; 
             ; Parameters: (None)
             ; Uses:
             ;   rf - buffer pointer
-            ;   rd - integer value
-            ;   r7 - pointer to integer byte in memory
             ; Returns:
-            ;   DF = 1 if error, 0 if no error
+            ;   DF = 0, no error
             ;-------------------------------------------------------
             proc    set_window_size
-            push    rf            ; save registers used
-            push    rd
-            push    r7
+            push    rf            ; save register used
             
-            ;----- send ANSI commands to get size of screen window
-            call    K_INMSG       ; set cursor to bottom right-most position
-              db 27,'[999C',27,'[999B',0
-            call    K_INMSG
-              db 27,'[6n',0       ; query the cursor position
-            call    K_INMSG      ; send newline to get response
-              db 10,13,0
-            load    rf, pos_y     ; get y position first
-            call    K_READ   
-            smi     27            ; check for escape
-            lbnz    bad_resp      ; if bad response, just return          
-            call    K_READ   
-            smi     '['           ; check for CSI marker
-            lbnz    bad_resp      ; if bad response, just return
-            
-rd_pos:     call    K_READ        ; get char in position string
-            str     r2            ; save character in M(X)
-            ldi     'R'
-            sd                    ; check for end of string
-            lbz     rd_done       
-            
-            ldi     ';'           
-            sd                    ; check for xy separator
-            lbnz    put_char
-            
-            load    rf, pos_x     ; point to x value position
-            lbr     rd_pos        ; get next character 
-            
-put_char:   ldx                   ; get char from M(X)
-            str     rf            ; save in position buffer
-            inc     rf            ; move to next position
-            lbr     rd_pos
+            load    rf, TERM_ROWS ; kernel's rows, zero if unknown
+            ldn     rf
+            lbz     sz_cols       ; if unknown, keep the default height
+            str     r2            ; save rows in M(X), load changes D
+            load    rf, size_h    ; save the height in memory
+            ldn     r2
+            str     rf
 
-rd_done:    load    r7, size_h    ; set memory byte pointer
-            load    rf, pos_y     ; convert y value string to byte
-            call    f_atoi
-            glo     rd            ; rd.0 contains integer value of y
-            str     r7            ; save in memory
-
-            load    r7, size_w    ; set memory byte pointer
-            load    rf, pos_x     ; convert x value string to byte
-            call    f_atoi        
-            glo     rd            ; rd.0 contains integer value of x
-            str     r7            ; save in memory
+sz_cols:    load    rf, TERM_COLS ; kernel's columns, zero if unknown
+            ldn     rf
+            lbz     sz_exit       ; if unknown, keep the default width
+            str     r2            ; save columns in M(X)
+            smi     MAX_WIDTH+1   ; check for a screen that is too wide
+            lbnf    sz_width      ; if columns <= maximum, use them
+            ldi     MAX_WIDTH     ; otherwise, use the maximum width
+            str     r2            
+sz_width:   load    rf, size_w    ; save the width in memory
+            ldn     r2
+            str     rf
             
+sz_exit:    pop     rf            ; restore register used
             clc                   ; clear DF to indicate success 
-            lbr     sz_exit       ; and exit
-            
-bad_resp:   stc                   ; Set DF = 1, for error
-sz_exit:    pop     r7            ; restore registers used
-            pop     rd
-            pop     rf
             return
-
-pos_y:    db 0,0,0,0              ; position string for y            
-pos_x:    db 0,0,0,0              ; position string for x
             endp
 
 
@@ -477,10 +448,13 @@ endp
 ;-------------------------------------------------------
 ; Name: status_msg
 ;
-; Buffer for editing the current status message
+; Buffer for editing the current status message.  It holds
+; one character for each screen column, up to MAX_WIDTH, 
+; plus the 5 byte ANSI reset sequence and null that ends 
+; the message.
 ;-------------------------------------------------------            
 proc  status_msg
-status_txt:   ds  128
+status_txt:   ds  MAX_WIDTH+5
 endp
 
 
