@@ -357,6 +357,14 @@ killquit:   call  getcurln      ; set r8 back to current line
               dw      0         ; current line variable
             endp
 
+            ; end of line state used by readln
+            ;   0 - at the beginning of a line
+            ;   1 - last line ended with a carriage return 
+            ;   2 - last line was split at the maximum line size  
+            proc  rd_eol
+              db      0         
+            endp 
+
             ; read buffer used by readbyte
             proc  rd_buf
               db      0         ; count of bytes left in buffer

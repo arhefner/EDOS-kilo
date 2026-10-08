@@ -33,6 +33,7 @@
             extrn   readln
             extrn   readbyte
             extrn   rd_buf
+            extrn   rd_eol
             extrn   sfldes
 
             
@@ -203,7 +204,11 @@ ld_exit:    pop   r7            ; restore registers
 loadlp:     push  rf            ; save text buffer address
             inc   rf            ; point to position after length
             call  readln        ; read next line
-            lbdf  loadeof       ; jump if eof was found
+            lbnf  loadnz        ; jump if line was read
+            
+            glo   rc            ; at eof, see if bytes were read
+            lbz   loadeof       ; jump if not, otherwise text after 
+                                ; the last newline is the last line
 
 loadnz:     ldi   13            ; write cr/lf to buffer
             str   rf
@@ -244,25 +249,6 @@ loadnz:     ldi   13            ; write cr/lf to buffer
             
 loadeof:    clc                 ; clear DF flag (no more lines)
             pop   rf            ; recover buffer address
-            glo   rc            ; see if bytes were read
-            lbz   loaddn        ; jump if not
-
-            ldi   13            ; write cr/lf to buffer
-            str   rf
-            inc   rf
-            ldi   10
-            str   rf
-            inc   rc            ; add 2 characters
-            inc   rc
-            glo   rc            ; get count
-            str   r2
-            glo   rf
-            add
-            plo   rf
-            ghi   rf
-            adci  0
-            phi   rf
-            clc                 ; clear DF flag after arithmetic
 loaddn:     ldi   0             ; write termination
             str   rf
             return 
@@ -280,10 +266,12 @@ ldt_err:    ldi   0             ; write termination (just in case)
             ;-------------------------------------------------------
             ; Name: readln
             ;
-            ; Read a line from a file into the text buffer
+            ; Read a line from a file into the text buffer.  A line 
+            ; ends with a carriage return, a line feed, or both.
             ;
             ; Parameters
             ;   rf - pointer to text buffer
+            ;   rd - pointer to open file control block
             ; Uses:
             ;   rc - byte count    
             ; Returns:
@@ -298,34 +286,64 @@ readln1:    call  readbyte      ; read a byte
             lbdf  readlneof     ; jump on eof
 
             plo   re            ; keep a copy
-            smi   10            ; look for first newline character
-            lbz   readln2       ; go to possible blank line
-            smi   22            ; look for anything else below a space
-            lbnf  readln1       ; skip over any other control characters
-            lbr   readln3       ; otherwise, process printable characters
+            smi   10            ; look for line feed
+            lbz   readlnlf      
+            smi   3             ; look for carriage return
+            lbz   readlncr      
+            smi   19            ; look for anything else below a space
+            lbdf  readln3       ; process printable characters
             
-readln2:    call  readbyte      ; read a byte
-            lbdf  readlneof     ; jump on eof
+            glo   rc            ; skip over any other control characters 
+            lbz   readln1       ; before text, after text they end the line
+            lbr   readln4
 
-            plo   re            ; keep a copy
-            smi   10            ; look for second newline character
-            lbz   readln4       ; exit on blank line
-            smi   22            ; look for anything else below a space
-            lbnf  readln2       ; skip over any other control characters
-                            
-readln3:    glo   re            ; recover byte
+            ; a line feed after the carriage return that ended the  
+            ; previous line belongs to that line, any other ends this one
+readlnlf:   push  rf            ; save text buffer pointer
+            load  rf, rd_eol    ; get the end of line state
+            ldn   rf
+            lbz   readlnend     ; zero means no line feed is expected
+            ldi   0             ; otherwise clear state and skip it
+            str   rf
+            pop   rf
+            lbr   readln1
+            
+            ; a carriage return ends the line, unless it follows 
+            ; a long line that was split 
+readlncr:   push  rf            ; save text buffer pointer
+            load  rf, rd_eol    ; get the end of line state
+            ldn   rf
+            plo   re            ; keep a copy of state
+            ldi   1             ; a line feed may come next
+            str   rf
+            glo   re
+            smi   2             ; state of 2 means line was split
+            lbnz  readlnend     ; if not, carriage return ends this line
+            pop   rf
+            lbr   readln1       ; otherwise it ended the line before 
+
+readln3:    glo   rc            ; text clears the end of line state
+            lbnz  readlnput     ; which only needs to be done once
+            push  rf
+            load  rf, rd_eol
+            ldi   0
+            str   rf
+            pop   rf
+
+readlnput:  glo   re            ; recover byte
             str   rf            ; store into buffer
             inc   rf            ; point to next position
             inc   rc            ; increment character count
             glo   rc            ; check for text longer than max line size
             smi   MAX_LINE      ; read up to MAX_LINE characters
-            lbz   readln4       ; split long text into individual lines
+            lbnz  readln1       ; keep going until line is full
             
-            call  readbyte      ; read next byte
-            lbdf  readlneof     ; jump if end of file
-            plo   re            ; keep a copy of read byte
-            smi   32            ; make sure it is positive
-            lbdf  readln3       ; loop back on valid characters
+            push  rf            ; split long text into individual lines
+            load  rf, rd_eol
+            ldi   2             ; newline may come next, if line was full
+            str   rf
+
+readlnend:  pop   rf            ; recover text buffer pointer            
 readln4:    ldi   0             ; signal valid read
 readlncnt:  shr                 ; shift into DF
             return              ; and return to caller
@@ -406,8 +424,9 @@ readbno:    pop   rc
             ;-------------------------------------------------------
             ; Name: reset_read
             ;
-            ; Empty the read buffer, so the next byte is read from
-            ; the beginning of a newly opened file.
+            ; Empty the read buffer and clear the end of line state, 
+            ; so the next line is read from the beginning of a newly 
+            ; opened file.
             ;
             ; Parameters: (None)
             ; Uses:
@@ -417,6 +436,9 @@ readbno:    pop   rc
             proc  reset_read
             push  rf
             load  rf, rd_buf    ; point to count of bytes left in buffer
+            ldi   0
+            str   rf
+            load  rf, rd_eol    ; no line has ended yet
             ldi   0
             str   rf
             pop   rf
