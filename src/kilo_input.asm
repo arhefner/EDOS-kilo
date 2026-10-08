@@ -4,9 +4,9 @@
 ; Copyright 2025 by Gaston Williams
 ; -------------------------------------------------------------------
 
-#include include/ops.inc
+#include include/opcodes.def
 #include include/bios.inc
-#include include/kernel.inc
+#include include/kernel_api.inc
 #include include/kilo_def.inc
 
             extrn   hlp_file
@@ -380,16 +380,16 @@ df_nbsrch:  ldi   0
 df_found:   load  rd, df_target   ; set destination to target string            
             call  found_screen    ; recalculate row and column offsets
                         
-            call  o_inmsg
+            call  K_INMSG
                db 27,'[2J',0      ; erase display and show found string        
             call  refresh_screen  ; r8, and rb.0 are set found string
             call  get_cursor      ; get the cursor
             call  move_cursor     ; position cursor at found string
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[30;43m',0   ; set colors to black on yellow text
             load  rf, df_target   ; print target string over found text 
-            call  o_msg           ; to highlight found string
-            call  o_inmsg
+            call  K_MSG           ; to highlight found string
+            call  K_INMSG
               db  27,'[0m',0      ; set text back to normal     
             load  rf, df_again    ; set prompt to search again
             call  do_confirm

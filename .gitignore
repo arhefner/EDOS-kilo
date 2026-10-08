@@ -1,0 +1,7 @@
+.vscode
+/kilo
+*.prg
+*.build
+*.lst
+*.lkb
+__pycache__/

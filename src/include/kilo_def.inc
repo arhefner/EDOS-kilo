@@ -45,6 +45,7 @@
 #define MAX_LINE  124 
 #define MAX_COL   123 
 #define MAX_FNAME  19
+#define MAX_PATH   80
 #define MAX_INTSTR  5
 #define MAX_TARGET 40
 #define SCREEN_TAB 16
@@ -53,6 +54,11 @@
 ; Number Lines in single Buffer
 ;-------------------------------------------------------------------------------
 #define BUF_LINES  96 
+
+;-------------------------------------------------------------------------------
+; Number of bytes read from a file at a time (255 maximum)
+;-------------------------------------------------------------------------------
+#define RD_BUF_SIZE  128
 
 
 ;-------------------------------------------------------------------------------
@@ -212,6 +218,10 @@
             extrn   do_paste
             extrn   do_help
             extrn   do_reload  
+            extrn   do_file
+            extrn   do_page
+            extrn   do_line
+            extrn   do_cursor
 
 ;-------------------------------------------------------------------------------
 ; File routines used by kilo editor
@@ -235,4 +245,10 @@
             extrn   save_text
             extrn   setup_spill
             extrn   teardown_spill
+            extrn   dos_open
+            extrn   dos_close
+            extrn   dos_read
+            extrn   dos_write
+            extrn   dos_delete
+            extrn   reset_read
             

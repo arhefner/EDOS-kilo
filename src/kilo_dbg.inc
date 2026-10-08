@@ -21,7 +21,7 @@
             push  r8              ; save current line
           
             load  rf, status_cmd  ; move cursor down to status line
-            call  o_msg
+            call  K_MSG
                           
             copy  rb, rd          ; copy current line for conversion           
             load  rf, rb_hex
@@ -85,55 +85,55 @@
             call  f_hexout2
             
             load  rf, stat_begin
-            call  o_msg
+            call  K_MSG
 
             load  rf, rb_hex
-            call  o_msg
+            call  K_MSG
             
             load  rf, line_lbl
-            call  o_msg
+            call  K_MSG
 
             load  rf, line_nmbr
-            call  o_msg
+            call  K_MSG
 
             load  rf, off_lbl
-            call  o_msg
+            call  K_MSG
 
             load  rf, off_nmbr
-            call  o_msg
+            call  K_MSG
 
             load  rf, col_lbl
-            call  o_msg
+            call  K_MSG
 
             load  rf, col_nmbr
-            call  o_msg
+            call  K_MSG
 
             load  rf, cy_lbl
-            call  o_msg
+            call  K_MSG
 
             load  rf, cy_nmbr
-            call  o_msg
+            call  K_MSG
             
             load  rf, cx_lbl
-            call  o_msg
+            call  K_MSG
 
             load  rf, cx_nmbr
-            call  o_msg
+            call  K_MSG
 
             load  rf, lmt_lbl
-            call  o_msg
+            call  K_MSG
 
             load  rf, lmt_nmbr
-            call  o_msg
+            call  K_MSG
 
             load  rf, state_lbl
-            call  o_msg
+            call  K_MSG
 
             load  rf, state_hex
-            call  o_msg
+            call  K_MSG
 
             load  rf, stat_end
-            call  o_msg
+            call  K_MSG
             pop   r8
             pop   r9
             return
@@ -169,7 +169,7 @@ stat_end:     db  27,'*',27,'[0m',0
             push  rd
             push  r8              ; save current line
           
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[25;1H',0    ; set cursor for status line
                         
             copy  r8, rd          ; copy line index for conversion           
@@ -226,55 +226,55 @@ stat_end:     db  27,'*',27,'[0m',0
 ;            call  f_hexout2
             
             load  rf, dbg_begin
-            call  o_msg
+            call  K_MSG
 
             load  rf, idx_hex
-            call  o_msg
+            call  K_MSG
             
             load  rf, clmn_lbl
-            call  o_msg
+            call  K_MSG
 
             load  rf, clmn_nmbr
-            call  o_msg
+            call  K_MSG
 
   ;          load  rf, off_lbl
-  ;          call  o_msg
+  ;          call  K_MSG
 
   ;          load  rf, off_nmbr
-  ;          call  o_msg
+  ;          call  K_MSG
 
   ;          load  rf, col_lbl
-  ;          call  o_msg
+  ;          call  K_MSG
 
   ;          load  rf, col_nmbr
-  ;          call  o_msg
+  ;          call  K_MSG
 
             load  rf, y_lbl
-            call  o_msg
+            call  K_MSG
 
             load  rf, y_nmbr
-            call  o_msg
+            call  K_MSG
             
             load  rf, x_lbl
-            call  o_msg
+            call  K_MSG
 
             load  rf, x_nmbr
-            call  o_msg
+            call  K_MSG
 
 ;            load  rf, lmt_lbl
 ;            load  rf, state_hex
-;            call  o_msg
+;            call  K_MSG
 
 ;            load  rf, lmt_nmbr
-;            call  o_msg
+;            call  K_MSG
 
 ;            load  rf, state_lbl
-;            call  o_msg
+;            call  K_MSG
 
-;            call  o_msg
+;            call  K_MSG
 
             load  rf, dbg_end
-            call  o_msg
+            call  K_MSG
             pop   r8
             pop   rd
             pop   rf

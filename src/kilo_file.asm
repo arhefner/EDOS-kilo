@@ -22,20 +22,18 @@
 ; *** without express written permission from the author.         ***
 ; *******************************************************************
 
-#include include/ops.inc
+#include include/opcodes.def
 #include include/bios.inc
-#include include/kernel.inc
+#include include/kernel_api.inc
 #include include/kilo_def.inc
 
             extrn   textbuf
             extrn   curline
             extrn   fildes
-            extrn   k_dta
             extrn   readln
             extrn   readbyte
-            extrn   k_char
+            extrn   rd_buf
             extrn   sfldes
-            extrn   s_dta
 
             
             ;-------------------------------------------------------
@@ -120,10 +118,9 @@ feob_done:  dec   ra            ; move back to end of buffer byte
             ; Parameters: (file name in fname buffer) 
             ; Uses:
             ;   rf - pointer to text bytes
-            ;   rd - pointer to file descripter
+            ;   rd - pointer to file control block
             ;   ra - line count
             ;   rc.0 - byte count
-            ;   r7.0 - flags register
             ; Returns:
             ;   ra.0 = count of lines
             ;   DF = 1 - not loaded (new file or error)
@@ -137,14 +134,14 @@ feob_done:  dec   ra            ; move back to end of buffer byte
             push  r7  
 
             load  rf, fname
-            load  rd, fildes    ; point to file descriptor     
-            ldi   0             ; flags
-            plo   r7
-            call  o_open        ; attempt to open the file
+            load  rd, fildes    ; point to file control block     
+            ldi   0             ; mode for read
+            call  dos_open      ; attempt to open the file
             lbdf  ld_exit       ; exit immediately, if file does not exist
 
+            call  reset_read    ; nothing read from this file yet
             load  rf, textbuf   ; point to text buffer
-            load  rd, fildes    ; point to file descriptor
+            load  rd, fildes    ; point to file control block
             ldi   BUF_LINES     ; load up to default buffer size
             plo   rb            ; set limit to up to maximum lines                 
             call  load_text     ; load the text into the first buffer
@@ -159,13 +156,13 @@ feob_done:  dec   ra            ; move back to end of buffer byte
             ori   ERROR_BIT     ; set error bit
             str   rf            ; update editor state byte           
             
-            load  rd, fildes    ; point to file descriptor     
-            call  o_close       ; attempt close the file
+            load  rd, fildes    ; point to file control block     
+            call  dos_close     ; attempt close the file
             stc                 ; set DF for error
             lbr   ld_exit 
 
-ld_done:    load  rd, fildes    ; point to file descriptor     
-            call  o_close       ; close the file
+ld_done:    load  rd, fildes    ; point to file control block     
+            call  dos_close     ; close the file
             clc                 ; clear the DF flag
 ld_exit:    pop   r7            ; restore registers
             pop   rb
@@ -183,7 +180,7 @@ ld_exit:    pop   r7            ; restore registers
             ;
             ; Parameters: (file name in fname buffer) 
             ;   rf - pointer to text bytes
-            ;   rd - pointer to open file descripter
+            ;   rd - pointer to open file control block
             ;   rb.0 - # lines to read (0 = read all lines)
             ; Uses:
             ;   ra - line count
@@ -196,8 +193,8 @@ ld_exit:    pop   r7            ; restore registers
             ;   (ERROR_BIT in e_state set if an error occurs)
             ;-------------------------------------------------------                       
             proc  load_text        
-            load  ra, k_heap    ; check heap address
-            ldn   ra            ; get page for bottom of heap
+            load  ra, LOADER_ARGS+2 ; check top of program memory
+            ldn   ra            ; get page for top of memory
             smi   1             ; set memory limit to one page below
             phi   rb            ; save page limit in rb.1
             
@@ -339,38 +336,91 @@ readlneof:  ldi   1             ; signal eof
             ;-------------------------------------------------------
             ; Name: readbyte
             ;
-            ; Read a byte from a file into the character buffer
+            ; Read the next byte from a file.  Bytes are read from 
+            ; the file a block at a time into the read buffer, as 
+            ; a kernel call for every byte is slow.
             ;
             ; Parameters
-            ;   rf - pointer to text buffer
+            ;   rd - pointer to open file control block
             ; Uses:
-            ;   rc - byte count    
+            ;   re.0 - scratch register
             ; Returns:
+            ;   D - byte read
             ;   DF = 0, byte read 
             ;   DF = 1, end of file encountered
             ;-------------------------------------------------------
             proc  readbyte
             push  rf
             push  rc
-            load  rf, k_char
-            ldi   0
-            phi   rc
-            ldi   1
-            plo   rc
-            call  o_read
-            glo   rc
-            lbz   readbno
-            ldi   0
-readbcnt:   shr
-            load  rf, k_char
+            load  rf, rd_buf    ; point to count of bytes left in buffer
             ldn   rf
+            lbnz  readbget      ; get next byte if buffer not empty
+            
+            inc   rf            ; move past count and index to data
+            inc   rf
+            load  rc, RD_BUF_SIZE
+            call  dos_read      ; read next block of file into buffer
+            glo   rc            ; no bytes read at end of file or error
+            lbz   readbno
+            plo   re            ; keep a copy of byte count
+            load  rf, rd_buf    
+            glo   re            ; set count of bytes in buffer
+            str   rf
+            inc   rf
+            ldi   0             ; set index back to start of data
+            str   rf
+            dec   rf
+            glo   re            ; get count for next byte
+            
+readbget:   smi   1             ; one less byte left in buffer
+            str   rf
+            inc   rf            ; point to index of next byte
+            ldn   rf
+            plo   re            ; keep a copy of index
+            adi   1             ; move index to following byte
+            str   rf
+            inc   rf            ; point to data
+            glo   re            ; add index to data pointer
+            str   r2
+            glo   rf
+            add
+            plo   rf
+            ghi   rf
+            adci  0
+            phi   rf
+            ldn   rf            ; get byte from buffer
             plo   re
             pop   rc
             pop   rf
             glo   re
+            clc                 ; signal valid read
             return
-readbno:    ldi   1
-            lbr   readbcnt
+            
+readbno:    pop   rc
+            pop   rf
+            ldi   0
+            stc                 ; signal eof
+            return
+            endp
+            
+            ;-------------------------------------------------------
+            ; Name: reset_read
+            ;
+            ; Empty the read buffer, so the next byte is read from
+            ; the beginning of a newly opened file.
+            ;
+            ; Parameters: (None)
+            ; Uses:
+            ;   rf - buffer pointer
+            ; Returns: (None)
+            ;-------------------------------------------------------
+            proc  reset_read
+            push  rf
+            load  rf, rd_buf    ; point to count of bytes left in buffer
+            ldi   0
+            str   rf
+            pop   rf
+            return
             endp
             
             
@@ -382,9 +432,8 @@ readbno:    ldi   1
             ; Parameters: (file name in fname buffer) 
             ; Uses:
             ;   rf - pointer to text bytes
-            ;   rd - pointer to file descripter
+            ;   rd - pointer to file control block
             ;   rc - byte count
-            ;   r7.0 - flags register
             ; Returns: 
             ;   DF = 0, file saved successfully
             ;   DF = 1, an error occurred when saving file
@@ -396,10 +445,9 @@ readbno:    ldi   1
             push  r7
 
             load  rf, fname     ; point to filename
-            load  rd, fildes    ; point to file descriptor
-            ldi   3             ; flags for open, create, truncate
-            plo   r7
-            call  o_open        ; open the destination file
+            load  rd, fildes    ; point to file control block
+            ldi   1             ; mode for write, create, truncate
+            call  dos_open      ; open the destination file
             lbdf  sf_exit       ; if we can't save file exit with error
 
             load  rf, spill_cnt ; get the spill count
@@ -416,16 +464,17 @@ readbno:    ldi   1
 
 sf_cont:    call  reset_buf     ; reset to spill file zero
 sf_lp:      call  copy_buffer   ; copy spill file to saved file
+            lbdf  sf_err        ; don't report a failed save as saved
             call  next_buf      ; point to next spill file
             lbnf  sf_lp         ; keep going until out of spill files
             lbr   sf_done       ; close file after save
             
 sf_text:    load  rf, textbuf   ; point to text buffer
-            load  rd, fildes    ; point to file descriptor            
+            load  rd, fildes    ; point to file control block            
             call  save_text     ; save the text buffer to the file
             lbdf  sf_err
             
-sf_done:    call  o_close       ; close the file
+sf_done:    call  dos_close     ; close the file
 
             load  rf, e_state   ; get editor state byte  
             ldn   rf            
@@ -439,7 +488,7 @@ sf_exit:    pop   r7            ; restore registers used
             pop   rf 
             return 
             
-sf_err:     call  o_close       ; attempt to close open file
+sf_err:     call  dos_close     ; attempt to close open file
             stc                 ; set DF=1 for error
             lbr   sf_exit       ; exit with error      
             endp
@@ -453,10 +502,9 @@ sf_err:     call  o_close       ; attempt to close open file
 
             ; Parameters: (file name in fname buffer) 
             ;   rf - pointer to text bytes
-            ;   rd - pointer to oepn file descripter
+            ;   rd - pointer to open file control block
             ; Uses:
             ;   rc - byte count
-            ;   r7.0 - flags register
             ; Returns: 
             ;   DF = 0, buffer saved successfully
             ;   DF = 1, an error occurred when saving buffer
@@ -472,7 +520,7 @@ st_lp:      ldn   rf            ; get length byte
             plo   rc
             ldi   0             ; clear high byte of count
             phi   rc
-            call  o_write       ; write the line
+            call  dos_write     ; write the line
             pop   rf            ; recover buffer
             lbdf  st_err        ; if we had a write error, exit
             

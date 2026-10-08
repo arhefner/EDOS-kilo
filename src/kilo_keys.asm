@@ -22,9 +22,9 @@
 ; *** without express written permission from the author.         ***
 ; *******************************************************************
 
-#include include/ops.inc
+#include include/opcodes.def
 #include include/bios.inc
-#include include/kernel.inc
+#include include/kernel_api.inc
 #include include/kilo_def.inc
 
 
@@ -332,9 +332,9 @@ c_update:   load  rf, e_state     ; get state byte
             ani   REFRESH_MASK    ; clear the refresh bit
             str   rf              ; update state byte            
 
-c_move:     call  o_inmsg
+c_move:     call  K_INMSG
               db 27,'[?25l',0     ; hide cursor
-            call  o_inmsg         ; reset cursor for move
+            call  K_INMSG         ; reset cursor for move
               db 27,'[H',0
 
 #ifdef KILO_DEBUG                  
@@ -357,7 +357,7 @@ c_rdy:
 
             call  get_cursor
             call  move_cursor     ; move to new position
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[?25h',0     ; show cursor        
             lbr   c_loop
 

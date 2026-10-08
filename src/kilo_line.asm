@@ -18,9 +18,9 @@
 ;  rf - General buffer pointer                               
 ;-------------------------------------------------------------------------------
 
-#include include/ops.inc
+#include include/opcodes.def
 #include include/bios.inc
-#include include/kernel.inc
+#include include/kernel_api.inc
 #include include/kilo_def.inc
             
             extrn   size_h
@@ -322,25 +322,25 @@ no_rtscrl:  call  set_cursor      ; update cursor position
             ldi   0               ; clear out char counter
             plo   r7              ; set cursor position to beginning of line                          
 
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[?25l',0     ; hide cursor        
 
             call  move_cursor     ; position cursor
 
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[2K',0       ; erase line
 
             call  move_cursor     ; position cursor to beginning of line
 
 rl_next:    lda   rf              ; get character from buffer
             lbz   rl_eol          ; null marks the end of line
-            call  o_type          ; print character to screen          
+            call  K_TYPE          ; print character to screen          
             lbr   rl_next
 
 rl_eol:     pop   r7              ; restore cursor position
             call  move_cursor     ; position cursor 
               
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[?25h',0     ; show cursor        
 
 rl_done:    pop   rf              ; restore register

@@ -22,50 +22,57 @@
 ; *** without express written permission from the author.         ***
 ; *******************************************************************
 
-#include include/ops.inc
+#include include/opcodes.def
 #include include/bios.inc
-#include include/kernel.inc
+#include include/kernel_api.inc
 #include include/kilo_def.inc
 
             extrn   msg_err
 
-            org     2000h
+            org     PROG_BASE
+            db      'E','D','F'     ; ELF-DOS program signature
+            db      1,0,0           ; program version, reserved byte
+
 start:      br      main
 
 
 ; Build information
 
-ever
-
 db    'Copyright 2025 by Gaston Williams',0
 
 
 ; Main code starts here, check provided argument
-main:       lda   ra              ; move past any spaces
-            smi   ' '
-            lbz   main
-            dec   ra              ; move back to non-space character
-            load  rf,fname        ; point to filename storage
-fnamelp:    lda   ra              ; get byte from filename
-            str   rf              ; store int buffer
-            inc   rf
-            smi   33              ; look for space or less
-            lbdf  fnamelp         ; loop back until done
-            dec   rf              ; point back to termination byte
-            ldi   0               ; and write terminator
-            str   rf
-            
-            load  rf,fname        ; point to filename storage
-            ldn   rf              ; get byte from argument
-            lbnz  k_good          ; jump if filename given
+; ra - pointer to argv (table of pointers), rc - argc
+main:       glo   rc              ; argv[0] is the program name, so
+            smi   2               ; need at least two arguments
+            lbnf  k_usage         ; show usage if no filename given
 
-            call  o_inmsg         ; otherwise display usage message
-              db  'Usage: kilo filename',10,13,0
+            inc   ra              ; point to argv[1]
+            inc   ra
+            lda   ra              ; get pointer to filename argument
+            phi   rd
+            ldn   ra
+            plo   rd
+
+            load  rf,fname        ; point to filename storage
+            ldi   MAX_PATH        ; limit name to size of storage
+            plo   rc
+fnamelp:    lda   rd              ; get byte from filename
+            str   rf              ; store into buffer
+            inc   rf
+            lbz   k_good          ; done once terminator is copied
+            dec   rc              ; count down space left
+            glo   rc
+            lbnz  fnamelp         ; loop back until done or out of space
+
+k_usage:    call  K_INMSG         ; otherwise display usage message
+              db  'Usage: kilo filename',13,10,0
+            ldi   1               ; exit code for error
             return                ; and return to os
 
      
-k_good:     call  o_inmsg
-              db 10,13,'Loading...',10,13,0
+k_good:     call  K_INMSG
+              db 13,10,'Loading...',13,10,0
 
             call  begin_kilo  
             lbdf  k_error         ; Just show error msg   
@@ -73,13 +80,16 @@ k_good:     call  o_inmsg
             ;----- read and process keys until Ctrl+Q is pressed  
             call  do_kilo
              
-k_exit:     call  end_kilo
-        
-            return                ; return to Elf/OS
+            call  end_kilo
+            ldi   0               ; exit code for success
+            return                ; return to ELF-DOS
 
-k_error:    load  rf, msg_err 
-            call  o_msg         ; show file error message
-            lbr   k_exit          ; and end program
-            
-            ;------ define end of execution block
+k_error:    call  end_kilo        ; clean up before showing message
+            load  rf, msg_err 
+            call  K_MSG           ; show file error message
+            call  K_INMSG
+              db 13,10,0
+            ldi   1               ; exit code for error
+            return                ; return to ELF-DOS
+
             end     start

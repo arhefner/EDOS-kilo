@@ -4,9 +4,9 @@
 ; Copyright 2025 by Gaston Williams
 ; -------------------------------------------------------------------
 
-#include include/ops.inc
+#include include/opcodes.def
 #include include/bios.inc
-#include include/kernel.inc
+#include include/kernel_api.inc
 #include include/kilo_def.inc
 
 ;-------------------------------------------------------------------------------
@@ -49,7 +49,7 @@
             load  rf, e_state     ; check key buffer bit in state byte
             ldn   rf
             ani   KBIO_BIT        ; zero out all but kbio bit
-            lbz   o_readkey       ; delegate to kernel function if no buffer
+            lbz   K_READ          ; delegate to kernel function if no buffer
             
             ; ******************************************************************
             ; ***  Read characters from the hardware serial UART port using  ***
@@ -83,7 +83,7 @@ gk_put:     sdi   keypast.0       ; recover tail+1 value
             bz    gk_get          ; if full, don't add any more 
             
             sd                    ; recover tail value
-            sex   r2              ; make sure x = 2 for Elf/OS
+            sex   r2              ; make sure x = 2 for ELF-DOS
             
             dec   rf              ; move back to tail ptr
             str   rf              ; store new value in tail

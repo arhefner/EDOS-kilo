@@ -4,9 +4,9 @@
 ; Copyright 2025 by Gaston Williams
 ; -------------------------------------------------------------------
 
-#include include/ops.inc
+#include include/opcodes.def
 #include include/bios.inc
-#include include/kernel.inc
+#include include/kernel_api.inc
 #include include/kilo_def.inc
 
             extrn   hlp_file
@@ -59,86 +59,86 @@ dh_rdy:     load  rf, e_state     ; get editor state byte
             ori   REFRESH_BIT     ; set refresh bit
             str   rf              ; refresh after showing help text
 
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[?25l',0     ; hide cursor        
 
-            call  o_inmsg         ; position cursor at 4,4
+            call  K_INMSG         ; position cursor at 4,4
               db 27,'[4;0H',0
               
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[30;43m',0   ; set colors to black on yellow text
 
             load  rf, hlp_div     ; print division line
-            call  o_msg  
+            call  K_MSG  
               
             load  rf, hlp_txt1    ; print first block of text
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_txt2    ; print next block of text
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_div     ; print division line
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_txt3    ; print next line of text
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_div     ; print division line
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_txt4    ; print next line of text
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_div     ; print division line
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_begin   ; print start of function line
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_file    ; print file functions text
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_end     ; print end function line
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_begin   ; print start of function line
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_page    ; print page functions text
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_end     ; print end function line
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_begin   ; print start of function line
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_line    ; print line functions text
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_end     ; print end function line
-            call  o_msg  
+            call  K_MSG  
             
             load  rf, hlp_begin   ; print start of function line
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_curs    ; print cursor functions text
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_end     ; print end function line
-            call  o_msg  
+            call  K_MSG  
 
             load  rf, hlp_div     ; print division line
-            call  o_msg  
+            call  K_MSG  
             
             load  rf, hlp_prmpt
 
             call  do_confirm      ; prompt to dismiss
             clc                   ; clear DF after prompt
             
-            call  o_inmsg
+            call  K_INMSG
               db  27,'[0m',0      ; set text back to normal     
-            call  o_inmsg
+            call  K_INMSG
             db 27,'[?25h',0     ; show cursor        
 
             call  clear_screen     

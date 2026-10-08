@@ -5,9 +5,9 @@
 ; -------------------------------------------------------------------
 
 
-#include include/ops.inc
+#include include/opcodes.def
 #include include/bios.inc
-#include include/kernel.inc
+#include include/kernel_api.inc
 #include include/kilo_def.inc
             
             extrn   status_msg
@@ -40,16 +40,16 @@
             push  rf
           
             load  rf, status_cmd  ; move cursor to status line
-            call  o_msg
+            call  K_MSG
 
-;            call  o_inmsg         ; set cursor for status line
+;            call  K_INMSG         ; set cursor for status line
 ;              db 27,'[25;1H',0
 
-            call  o_inmsg         ; set text colors to white on blue
+            call  K_INMSG         ; set text colors to white on blue
               db 27,'[37;44m',0
 
             load  rf, status_msg  ; print the status message
-            call  o_msg
+            call  K_MSG
               
             pop   rf
             return 
@@ -201,7 +201,7 @@ si_end:     ldi   27              ; end message with 27,'[0m',0
             ;   rb.1 - updated line length
             ;-------------------------------------------------------            
             proc  pad_line
-            plo   re              ; save count in Elf/OS scratch register
+            plo   re              ; save count in scratch register
             push  rf              ; save registers used
             push  rc
             
@@ -415,7 +415,7 @@ ss_exit:    pop   r9          ; restore sratch registers
             ; Name: isfnchar
             ;
             ; Check if character is valid character for an
-            ; Elf/OS filename.
+            ; ELF-DOS filename or path.
             ;
             ; Parameters: 
             ;   D - char to check
@@ -424,20 +424,18 @@ ss_exit:    pop   r9          ; restore sratch registers
             ;   DF = 0, if not valid
             ;-------------------------------------------------------
             ; Note: Only the uppercase letters A-Z, lowercase 
-            ;   letters a-z, numbers 0-9, period, underscore and
-            ;   forward slash are valid.
+            ;   letters a-z, numbers 0-9, period, underscore, hyphen,
+            ;   forward slash and colon (for a drive letter) are valid.
             ;-------------------------------------------------------
             proc  is_fnchar
             stxd                  ; save character on stack
-            smi   '.'             ; period is first valid character
-            lbnf  cfn_bad         ; characters before period are invalid
-            lbz   cfn_ok          ; period is valid character
+            smi   '-'             ; hyphen is first valid character
+            lbnf  cfn_bad         ; characters before hyphen are invalid
             
-            smi   12              ; next invalid character is the colon
-            lbnf  cfn_ok          ; forward slash and numbers 0 to 9 are valid
-            lbz   cfn_bad         ; colon is invalid
+            smi   14              ; next invalid character is the semicolon
+            lbnf  cfn_ok          ; hyphen, period, slash, 0 to 9 and colon are valid
             
-            smi   7               ; next valid character is uppercase A
+            smi   6               ; next valid character is uppercase A
             lbnf  cfn_bad         ; punctuation characters before A are invalid
             lbz   cfn_ok          ; Capital A is valid
             

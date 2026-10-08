@@ -4,9 +4,9 @@
 ; Copyright 2025 by Gaston Williams
 ; -------------------------------------------------------------------
 
-#include include/ops.inc
+#include include/opcodes.def
 #include include/bios.inc
-#include include/kernel.inc
+#include include/kernel_api.inc
 #include include/kilo_def.inc
 
 ;-------------------------------------------------------------------------------

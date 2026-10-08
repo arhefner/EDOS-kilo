@@ -4,9 +4,9 @@
 ; Copyright 2025 by Gaston Williams
 ; -------------------------------------------------------------------
 
-#include include/ops.inc
+#include include/opcodes.def
 #include include/bios.inc
-#include include/kernel.inc
+#include include/kernel_api.inc
 #include include/kilo_def.inc
             
             extrn   size_h
@@ -54,21 +54,21 @@
             push    r7
             
             ;----- send ANSI commands to get size of screen window
-            call    o_inmsg       ; set cursor to bottom right-most position
+            call    K_INMSG       ; set cursor to bottom right-most position
               db 27,'[999C',27,'[999B',0
-            call    o_inmsg
+            call    K_INMSG
               db 27,'[6n',0       ; query the cursor position
-            call    o_inmsg      ; send newline to get response
+            call    K_INMSG      ; send newline to get response
               db 10,13,0
             load    rf, pos_y     ; get y position first
-            call    o_readkey
+            call    K_READ   
             smi     27            ; check for escape
             lbnz    bad_resp      ; if bad response, just return          
-            call    o_readkey
+            call    K_READ   
             smi     '['           ; check for CSI marker
             lbnz    bad_resp      ; if bad response, just return
             
-rd_pos:     call    o_readkey     ; get char in position string
+rd_pos:     call    K_READ        ; get char in position string
             str     r2            ; save character in M(X)
             ldi     'R'
             sd                    ; check for end of string
@@ -330,19 +330,19 @@ pos_x:    db 0,0,0,0              ; position string for x
             ldi     0             ; make sure ASCII value terminated as string
             str     rf
             
-            call    o_inmsg       ; send CSI for ANSI command
+            call    K_INMSG       ; send CSI for ANSI command
               db 27,'[',0
             
             load    rf, pos_y     ; send ASCII y value
-            call    o_msg
+            call    K_MSG
 
-            call    o_inmsg       ; send ANSI value separator
+            call    K_INMSG       ; send ANSI value separator
               db ';',0
 
             load    rf, pos_x     ; send ASCII x value
-            call    o_msg
+            call    K_MSG
 
-            call    o_inmsg       ; send end of ANSI command to move cursor
+            call    K_INMSG       ; send end of ANSI command to move cursor
               db 'H',0
 
             pop     rd

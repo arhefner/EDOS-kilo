@@ -4,20 +4,17 @@
 ; Copyright 2025 by Gaston Williams
 ; -------------------------------------------------------------------
 
-#include include/ops.inc
+#include include/opcodes.def
 #include include/bios.inc
-#include include/kernel.inc
+#include include/kernel_api.inc
 #include include/kilo_def.inc
 
             extrn   textbuf
             extrn   curline
             extrn   fildes
-            extrn   k_dta
             extrn   readln
             extrn   readbyte
-            extrn   k_char
             extrn   sfldes
-            extrn   s_dta
 
 
             ; ***************************************
@@ -336,27 +333,23 @@ killquit:   call  getcurln      ; set r8 back to current line
             ; ***************************************
 
             proc  fname
-              ds      80        ; file name
+              ds      MAX_PATH  ; file name
             endp
               
+            ; A file control block must not cross a page boundary, so
+            ; each one is aligned.  The sector buffer for the file must 
+            ; come right after the control block, where dos_open looks
+            ; for it.
+            .link .align 32
             proc  fildes
-              db      0,0,0,0   ; file descriptor
-              dw      k_dta
-              db      0,0
-              db      0
-              db      0,0,0,0
-              dw      0,0
-              db      0,0,0,0
+              ds      FCB_LEN         ; file control block
+              ds      FCB_IOBUF_LEN   ; sector buffer  
             endp  
 
+            .link .align 32
             proc  sfldes
-              db      0,0,0,0   ; file descriptor
-              dw      s_dta
-              db      0,0
-              db      0
-              db      0,0,0,0
-              dw      0,0
-              db      0,0,0,0
+              ds      FCB_LEN         ; spill file control block
+              ds      FCB_IOBUF_LEN   ; sector buffer  
             endp  
 
 
@@ -364,20 +357,11 @@ killquit:   call  getcurln      ; set r8 back to current line
               dw      0         ; current line variable
             endp
 
-            proc  k_char
-              db      0         ; character read from file
-            endp  
-
-            proc  k_dta
-             ds      512        ; data transfer area  
-            endp 
-
-            proc  s_dta
-             ds      512        ; data transfer area  
-            endp 
-                     
-            proc  s_buf
-             ds      256        ; spill transfer buffer  
+            ; read buffer used by readbyte
+            proc  rd_buf
+              db      0         ; count of bytes left in buffer
+              db      0         ; index of next byte in buffer
+              ds      RD_BUF_SIZE     ; bytes read from file  
             endp 
 
             ; text buffer format

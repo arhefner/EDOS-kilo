@@ -1,11 +1,34 @@
-# Elfos-kilo
-A full screen editor for the Elf/OS written in 1802 Assembly language and based loosely on the [Kilo editor](https://github.com/antirez/kilo) by Salvatore Sanfilippo aka antirez and the [Elfos-Edit editor](https://github.com/rileym65/Elf-Elfos-edit) by Mike Riley.
+# EDOS-kilo
+A full screen editor for [ELF-DOS](https://github.com/arhefner/ELF-DOS), written in 1802 Assembly language. It is a port of the [Elf/OS kilo editor](https://github.com/fourstix/Elfos-kilo) by Gaston Williams, which is based loosely on the [Kilo editor](https://github.com/antirez/kilo) by Salvatore Sanfilippo aka antirez and the [Elfos-Edit editor](https://github.com/rileym65/Elf-Elfos-edit) by Mike Riley.
 
 Platform
 --------
-The Elf/OS kilo editor was written for an 1802 based Microcomputer running the [Elf/OS](https://github.com/rileym65/ElfosV5) operating system or the [Mini/DOS](https://github.com/dmadole/MiniDOS-kernel) operating system, such as the [Pico/Elf](http://www.elf-emulation.com/picoelf.html) by Mike Riley or the [1802-Mini](https://github.com/dmadole/1802-Mini) by David Madole or the [AVI Elf II](https://github.com/awasson/AVI-ELF-II) by Ed Keefe. A lot of information and software for the Pico/Elf, the 1802-Mini and the AVI Elf II can be found on the [Elf-Emulation](http://www.elf-emulation.com/) website and in the [COSMAC ELF Group](https://groups.io/g/cosmacelf) at groups.io.
+The ELF-DOS kilo editor runs on an 1802 based Microcomputer running the ELF-DOS operating system, with an ANSI (VT100 style) terminal as the console. ELF-DOS runs on the same hardware as Elf/OS, such as the [Pico/Elf](http://www.elf-emulation.com/picoelf.html) by Mike Riley or the [1802-Mini](https://github.com/dmadole/1802-Mini) by David Madole.
 
-The Elf/OS kilo editor were assembled and linked with updated versions of the Asm-02 assembler and Link-02 linker by Mike Riley. The updated versions required to assemble and link this code are available at [fourstix/Asm-02](https://github.com/fourstix/Asm-02) and [fourstix/Link-02](https://github.com/fourstix/Link-02).
+Usage
+-----
+```
+kilo filename
+```
+The file name may include a drive letter and a path, such as `D:/src/hello.asm`. If the file does not exist, the editor starts with an empty buffer and creates the file when it is saved. The exit code is 0, or 1 if the editor could not start.
+
+Building
+--------
+The editor is assembled and linked with the [Asm/02](https://github.com/arhefner/Asm-02) assembler and [Link/02](https://github.com/arhefner/Link-02) linker, the same versions used to build ELF-DOS. The Makefile expects them in `/opt/elfc`; set `ASM` and `LINK` to use them from somewhere else.
+```
+make          # assemble src/*.asm and link ./kilo
+make clean
+```
+Copy the `kilo` file that this produces into the `/bin` directory of an ELF-DOS volume.
+
+`elfdos-sdk/` is a copy of the ELF-DOS SDK that the editor is built against; see `elfdos-sdk/MANIFEST.txt` for the ELF-DOS version it came from, and `elfdos-sdk/DEVELOPER_GUIDE.md` for the program interface. Rebuild the editor against a newer SDK if the ELF-DOS kernel's minor version changes.
+
+Differences from the Elf/OS version
+-----------------------------------
+* File names can be a path of up to 79 characters on the command line. A new name entered with the Rename function can have up to 19 characters, and may contain a drive letter, a path and hyphens.
+* Keys are always read through the ELF-DOS kernel, so the editor works with whatever console ELF-DOS is using.
+* Spill files are created in the current directory of the current drive.
+* A save that fails part way through a large file is reported as an error.
 
 
 Kilo Key Commands
@@ -85,8 +108,8 @@ Kilo Cursor Functions
 <tr><td>I</td><td>Toggle insert/overwrite mode</td></tr>
 </table>
 
-Note: The line numbers are calculated based on 120 rows per buffer.  If a buffer
-has lines added or deleted, so that its number of rows is not 120, then calculated line number in following buffers will be off by the difference.
+Note: The line numbers are calculated based on 96 rows per buffer.  If a buffer
+has lines added or deleted, so that its number of rows is not 96, then calculated line number in following buffers will be off by the difference.
 
 
 Kilo Text Modes
@@ -124,8 +147,8 @@ Text Limits
   
 File Limits
 -----------
-* Buffers are used to edit files larger than 120 lines 
-* Each buffer has up to 120 lines
+* Buffers are used to edit files larger than 96 lines 
+* Each buffer has up to 96 lines
 * A file can have up to 255 buffers
 * Buffers are saved to temporary spill files, while the file is edited
 * Spill files are created automatically when a large file is loaded 
@@ -167,10 +190,11 @@ Note:  On some older DEC video terminals, the arrow keys send {ESC}A through
 
 Repository Contents
 -------------------
-* **/src/**  -- Source files for the Elf/OS kilo editor.
+* **/src/**  -- Source files for the ELF-DOS kilo editor.
   * kilo.asm - Main assembly source file.
   * kilo_file.asm - Assembly source file for file routines.
   * kilo_spill.asm - Assembly source file for spill file routines.
+  * kilo_dos.asm - Assembly source file for calls to the ELF-DOS kernel file functions.
   * kilo_data.asm - Assembly source file data and buffers.
   * kilo_util.asm - Assembly source file for utility routines.
   * kilo_buf.asm - Assembly source file for buffer utility routines.
@@ -185,15 +209,10 @@ Repository Contents
   * kilo_move.asm - Assembly source file for cursor movement key handler routines.
   * kilo_input.asm - Assembly source file for input and confirmation functions.
   * kilo_dbg.inc - Assembly source file for optionally included debug functions.
-  * build.bat - Windows batch file to assemble and create the Elf/OS kilo editor.
-  * clean.bat - Windows batch file to delete the executable and the associated build files.   
-* **/src/include/**  -- Include files for the graphics display programs and their libraries.  
-  * kilo_def.inc - Definitions for Elf/OS kilo source files.
-  * ops.inc - Opcode definitions for Asm/02.
-  * bios.inc - Bios definitions from Elf/OS
-  * kernel.inc - Kernel definitions from Elf/OS
-* **/bin/**  -- Binary files for Elf/OS kilo editor.
-  * kilo.elfos - Elf/OS binary file for the Elf/OS kilo editor
+* **/src/include/**  -- Include files for the editor.  
+  * kilo_def.inc - Definitions for the kilo source files.
+* **/elfdos-sdk/**  -- The ELF-DOS SDK: kernel, BIOS and opcode definitions, library modules and the Developer's Guide.
+* **Makefile** -- Builds the editor.
 
 References
 ----------
@@ -217,6 +236,12 @@ Any company, product, or services names may be trademarks or services marks of o
 All libraries used in this code are copyright their respective authors.
 
 This code is based on a Elf/OS kernel written by Mike Riley and created with the Asm/02 assembler and Link/02 linker also written by Mike Riley.
+
+Elf/OS kilo editor 
+Copyright (c) 2025 by Gaston Williams
+
+ELF-DOS 
+Copyright (c) 2026 by Tony Hefner
 
 Elf/OS 
 Copyright (c) 2004-2025 by Mike Riley

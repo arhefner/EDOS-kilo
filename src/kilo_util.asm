@@ -22,9 +22,9 @@
 ; *** without express written permission from the author.         ***
 ; *******************************************************************
 
-#include include/ops.inc
+#include include/opcodes.def
 #include include/bios.inc
-#include include/kernel.inc
+#include include/kernel_api.inc
 #include include/kilo_def.inc
             
             extrn   size_h
@@ -56,39 +56,24 @@
           ; Parameters: (None) 
           ; Uses:
           ;   rf - buffer pointer
-          ;   re.1 - Elf/OS serial byte
           ;   fname - should be set by caller
           ; Returns: 
-          ;   re.1 - serial echo bit off
           ;   r8 - current line number
           ;   r7 - cursor set to home position 
           ;-------------------------------------------------------
 
             proc  begin_kilo
                  
-            ;------ Enable raw mode
-            ghi   re              ; get Elf/OS serial byte
-            ani   $fe             ; clear the echo bit
-            phi   re              ; restore serial byte with echo off
-
-            ;----- set the key buffer I/O bit
-            ghi   re              ; re.1 = 0 means hardware uart
-            lbnz  bk_cont         ; don't buffer, bit-banged serial I/O
-            
-            load  rf, o_readkey+1 ; check kernel vector for readkey function
-            smi   $F8             ; $F800 and higher are BIOS ROM
-            lbnf  bk_cont         ; don't buffer, if vector has been redirected
-            
-            load  rf, e_state     ; otherwise, set bit in state byte
-            ldn   rf              ; get current state byte
-            ori   KBIO_BIT        ; set bit to buffer serial I/O
-            str   rf              ; save updated byte
+            ;------ ELF-DOS turns the serial echo off when it boots, so
+            ;------ the console is already in raw mode.  The key buffer 
+            ;------ I/O bit is left clear, so keys are read by the kernel.
 
             ;------ Load file to edit
-bk_cont:    call  load_file       ; file text buffer
+            call  load_file       ; file text buffer
             lbnf  old_file        ; if file exists no new file message
                           
-            ldn   rf              ; otherwise, set new file bit
+            load  rf, e_state     ; otherwise, set new file bit
+            ldn   rf              ; get editor state byte
             ori   NEWFILE_BIT     
             str   rf              ; save editor state in memory            
             
@@ -122,7 +107,7 @@ old_file:   load  rf, e_state
             call  clear_screen    ; clear the screen
             call  refresh_screen  ; print buffer to screen
 
-            call  o_inmsg
+            call  K_INMSG
             db 27,'[?25l',0       ; hide cursor        
 
 #ifdef KILO_DEBUG                  
@@ -133,9 +118,9 @@ old_file:   load  rf, e_state
 
             call  home_cursor     ; set cursor position in memory
               
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[H',0        ; home cursor on screen
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[?25h',0     ; show cursor        
               
             clc                   ; return without error              
@@ -150,14 +135,13 @@ bk_err:     stc                   ; return with error
             ;-------------------------------------------------------
             ; Name: end_kilo
             ;
-            ; Set the serial echo bit on to disable the raw mode, 
-            ; and clear the screen before exiting the application.
+            ; Delete any spill files and clear the screen before 
+            ; exiting the application.
             ;            
             ; Parameters: (None)
             ; Uses:
-            ;   re.1 - Elf/OS serial byte
-            ; Returns: 
-            ;   re.1 - serial echo bit on
+            ;   rf - buffer pointer
+            ; Returns: (None)
             ;-------------------------------------------------------
             proc  end_kilo 
             load  rf, spill_cnt ; get the spill count
@@ -170,12 +154,7 @@ bk_err:     stc                   ; return with error
             
             call  teardown_spill  ; delete spill files
 
-            ;------ Disable raw mode     
-ek_exit:    ghi   re              ; get Elf/OS serial byte
-            ori   $01             ; set the echo bit
-            phi   re              ; restore serial byte with echo on
-
-            call  clear_screen    ; clear the screen
+ek_exit:    call  clear_screen    ; clear the screen
             return
             endp
 
@@ -469,9 +448,9 @@ eof_exit:   pop   rf
             ; Returns: (None)
             ;-------------------------------------------------------            
             proc  clear_screen
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[2J',0           ; erase display
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[H',0            ; home cursor
             return
             endp 
@@ -594,10 +573,10 @@ ms_size:    phi   rb              ; set rb.1 to new size
             phi   rd
             plo   rd                          
             
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[?25l',0     ; hide cursor        
 
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[H',0        ; home cursor
 
             call  getcurln          
@@ -611,7 +590,7 @@ ms_size:    phi   rb              ; set rb.1 to new size
 
             call  get_col_offset  ; get the column offset into rc.1
             
-prt_lines:  call  o_inmsg
+prt_lines:  call  K_INMSG
               db 27,'[2K',0       ; erase line
 
             ghi   rc              ; get column offset
@@ -637,7 +616,7 @@ prt_lines:  call  o_inmsg
             phi   ra              ; ra now points to first character on-screen
               
 ln_lp:      lda   ra              ; get character
-            call  o_type          ; print on screen
+            call  K_TYPE          ; print on screen
             dec   rd              ; count down characters in line
             glo   rd              ; check counter for end of line
             lbnz  ln_lp           ; keep going for all characters on screen  
@@ -653,7 +632,7 @@ ln_skp:     lda   ra              ; ra points to size, so get size
             adci  0
             phi   ra              ; update high byte
             
-            call  o_inmsg         ; output CRLF to skip line
+            call  K_INMSG         ; output CRLF to skip line
               db 10,13,0
 
 ln_cont:    inc   r8              ; add one to current line value
@@ -665,7 +644,7 @@ ln_cont:    inc   r8              ; add one to current line value
 rf_done:    call  get_cursor      ; restore cursor
             call  move_cursor     ; position cursor
                 
-            call  o_inmsg
+            call  K_INMSG
               db 27,'[?25h',0     ; show cursor        
 
             pop   r8              ; restore current line
