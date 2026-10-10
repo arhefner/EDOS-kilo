@@ -243,7 +243,7 @@ sure_str:     db 'Are you sure (Y/N)?',0
             
             ldi   0               ; set up character count
             phi   rc
-            ldi   MAX_FNAME       ; up to 19 characters in filename
+            ldi   MAX_FNAME       ; up to 64 characters in filename and path
             plo   rc
             load  rf, dc_prmpt    ; set prompt to enter new file name
             load  rd, work_buf  ; point to working buffer for input            
@@ -278,7 +278,7 @@ dc_exit:    pop   r9
             pop   rd
             pop   rf
             return 
-dc_prmpt:     db 'Enter new file name: ',0
+dc_prmpt:     db 'New file name:',0
 dc_invalid:   db 'Invalid file name. File not saved.',0            
             endp 
 

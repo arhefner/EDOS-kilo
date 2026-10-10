@@ -27,7 +27,7 @@ Copy the `kilo` file that this produces into the `/bin` directory of an ELF-DOS 
 
 Differences from the Elf/OS version
 -----------------------------------
-* File names can be a path of up to 79 characters on the command line. A new name entered with the Rename function can have up to 19 characters, and may contain a drive letter, a path and hyphens.
+* File names can be a path of up to 79 characters on the command line. A new name entered with the Rename function can have up to 64 characters, and may contain a drive letter, a path and hyphens.
 * Keys are always read through the ELF-DOS kernel, so the editor works with whatever console ELF-DOS is using. The circular key buffer for the hardware UART has been removed.
 * Spill files are created in the current directory of the current drive.
 * A save that fails part way through a large file is reported as an error.

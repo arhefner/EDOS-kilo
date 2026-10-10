@@ -49,7 +49,7 @@
 ;-------------------------------------------------------------------------------
 #define MAX_LINE  124 
 #define MAX_COL   123 
-#define MAX_FNAME  19
+#define MAX_FNAME  64
 #define MAX_PATH   80
 #define MAX_INTSTR  5
 #define MAX_TARGET 40
