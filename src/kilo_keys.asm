@@ -41,7 +41,17 @@
             proc  do_kilo
       
             ; read characters until ctrl+q is typed  
-c_loop:     call  K_READ          ; get a keyvalue             
+c_loop:     load  rf, c_col       ; save where the cursor is in the text
+            glo   rb              ; before the key, so a change to the 
+            str   rf              ; line is redrawn from where it begins
+            inc   rf
+            glo   r8
+            str   rf
+            inc   rf
+            ldi   0               ; no change made to the line by this key yet
+            str   rf
+            
+            call  K_READ          ; get a keyvalue             
             str   r2              ; save character at M(Xs)
 
             ; Check for printable or control char
@@ -81,6 +91,9 @@ c_prt:      ldx                   ; get printable character at M(X)
             call  put_line_buffer ; put new line in line buffer
             ldi   0               ; move to beginning column
             plo   rb
+            load  rf, c_col       ; a new line is redrawn from the beginning
+            ldi   0
+            str   rf
             
 cprt_mode:  pop   r9              ; restore r9 with character to type
             load  rf, e_state     ; get editor state byte  
@@ -320,25 +333,39 @@ c_update:   load  rf, e_state     ; get state byte
 
             call  refresh_screen  ; refresh screen
 
+            ;----- the screen is drawn from the text buffer, so a change
+            ;----- this key made to the line has to be drawn again 
+            load  rf, c_col       ; point to line changed flag
+            inc   rf
+            inc   rf
+            ldn   rf
+            lbz   c_clear         ; if key did not change line, nothing to do
+            ldi   0               ; redraw from beginning of line
+            plo   rd
+            ldi   1               ; erase to the end of the line
+            phi   rd
+            call  refresh_line    
+            
+c_clear:
             ;----- clear refresh bit
             load  rf, e_state     ; get state byte
             ldn   rf              
             ani   REFRESH_MASK    ; clear the refresh bit
             str   rf              ; update state byte            
 
-c_move:     call  K_INMSG
-              db 27,'[?25l',0     ; hide cursor
-            call  K_INMSG         ; reset cursor for move
-              db 27,'[H',0
-
+c_move:     
 #ifdef KILO_DEBUG                  
+            call  K_INMSG
+              db 27,'[?25l',0     ; hide cursor
             call  prt_status_dbg  ; always update debug status line              
 #else    
-            load  rf, e_state     ; check refresh bit
+            load  rf, e_state     ; check status bit
             ldn   rf
             ani   STATUS_BIT      ; zero out all other bits, but status
-            lbz   c_rdy           ; if no status update, ready to process character
+            lbz   c_rdy           ; if no status update, just move the cursor
             
+            call  K_INMSG
+              db 27,'[?25l',0     ; hide cursor
             call  kilo_status     ; update the status message
             call  prt_status      ; update the status line
 
@@ -346,7 +373,6 @@ c_move:     call  K_INMSG
             ldn   rf
             ani   STATUS_MASK     ; clear bit
             str   rf              ; save updated editor state byte
-c_rdy:                         
 #endif
 
             call  get_cursor
@@ -355,7 +381,52 @@ c_rdy:
               db 27,'[?25h',0     ; show cursor        
             lbr   c_loop
 
-c_line:     call  refresh_line    ; update line on screen
+            ;----- the cursor was not hidden, so there is no need to show it
+c_rdy:      call  get_cursor
+            call  move_cursor     ; move to new position
+            lbr   c_loop
+
+            ;----- A key that changes the line leaves everything before
+            ;----- the change as it was on the screen, so the line is 
+            ;----- redrawn from the column before the key or the column 
+            ;----- after it, whichever is further left.  The end of the 
+            ;----- line is only erased if the cursor did not move right,
+            ;----- as only then can the line be shorter than it was.
+c_line:     load  rf, c_col       ; point to line before the key
+            inc   rf
+            glo   r8              ; check against current line
+            str   r2
+            ldn   rf
+            xor
+            lbnz  cl_all          ; redraw all of a different line
+            
+            dec   rf              ; point to column before the key
+            ldn   rf
+            str   r2
+            glo   rb              ; get column after the key
+            sm                    ; subtract column before from column after
+            lbnf  cl_here         ; moved left, redraw from new column
+            lbz   cl_here         ; did not move, redraw from this column
+            
+            ldn   rf              ; moved right, redraw from old column
+            plo   rd
+            ldi   0               ; nothing to erase
+            phi   rd
+            lbr   cl_draw
+
+cl_all:     ldi   0               ; redraw from beginning of line
+            lbr   cl_erase
+cl_here:    glo   rb              ; redraw from current column
+cl_erase:   plo   rd
+            ldi   1               ; erase to the end of the line
+            phi   rd
+            
+cl_draw:    call  refresh_line    ; update line on screen
+            load  rf, c_col       ; flag line as changed by this key
+            inc   rf
+            inc   rf
+            ldi   1
+            str   rf
             lbr   c_update
 
 c_error:    load  rf, msg_err     ; show error message before exit
@@ -363,6 +434,9 @@ c_error:    load  rf, msg_err     ; show error message before exit
               
 c_exit:     return
 c_rpt:        db 0                ; repeated character
+c_col:        db 0                ; character position before key
+              db 0                ; current line before key (low byte)
+              db 0                ; non-zero if key changed the line
 msg_err:      db '*** An Error Occurred ***',0
               public msg_err
             endp               
