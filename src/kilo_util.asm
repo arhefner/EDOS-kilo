@@ -556,55 +556,98 @@ ms_size:    phi   rb              ; set rb.1 to new size
             ;-------------------------------------------------------
             ; Name: refresh_screen
             ;
-            ; Send the ANSI sequences and text to refresh the screen
+            ; Send the ANSI sequences and text to refresh the screen,
+            ; from the row in rf_top down, or all of it if rf_top is 
+            ; zero.  rf_top is set back to zero.
+            ;
+            ; Each row is written over what is on the screen and 
+            ; anything left after it is erased, as erasing the row 
+            ; first makes it flicker.  A line is only written as far 
+            ; as the right edge of the screen.
             ; 
             ; Parameters: (None)
             ; Uses: 
-            ;   rd - line pointer
+            ;   rd.0 - character counter
+            ;   rd.1 - characters past the edge, $FF if row not filled
             ;   rc.0 - line counter
+            ;   r9.0 - window width
+            ;   r9.1 - first row to refresh
             ; Returns: (None)
             ;-------------------------------------------------------            
             proc  refresh_screen
             push  rf
             push  rd
+            push  r9
 
-            ldi   0               ; clear out char counter
-            phi   rd
-            plo   rd                          
-            
             call  K_INMSG
               db 27,'[?25l',0     ; hide cursor        
 
-            call  K_INMSG
-              db 27,'[H',0        ; home cursor
+            load  rf, rf_top      ; get first row to refresh
+            ldn   rf
+            phi   r9
+            ldi   0               ; refresh all of the screen next time
+            str   rf
+            ghi   r9
+            lbnz  rf_row
+            ldi   1               ; zero means all, beginning at row one
+            phi   r9
 
-            call  getcurln          
+rf_row:     call  getcurln          
             push  r8              ; save current line for later
             
-            call  get_row_offset  ; set the current line for the top row
-            call  find_line       ; set r8 and ra for top row line in text buffer    
+rf_find:    call  get_row_offset  ; set the current line for the top row
+            ghi   r9              ; move down to first row to refresh
+            plo   rd
+rf_down:    glo   rd
+            smi   1
+            lbz   rf_line
+            plo   rd
+            inc   r8
+            lbr   rf_down
+            
+rf_line:    call  find_line       ; set r8 and ra for first line in text buffer
+            lbnf  rf_found
+            ghi   r9              ; if there is no such line, refresh all rows
+            smi   1
+            lbz   rf_found        ; unless that is what is being done
+            ldi   1
+            phi   r9
+            lbr   rf_find
+
+rf_found:   call  window_width    ; get the window width in rc.0
+            glo   rc
+            plo   r9
 
             call  window_height   ; set up counter for lines
             dec   rc              ; skip one line for status
+            ghi   r9              ; skip rows above first row to refresh
+            smi   1
+            str   r2
+            glo   rc
+            sm
+            plo   rc
+            lbz   rf_done         ; (first row is never below the last)
+
+            push  r7              ; move to beginning of first row
+            ghi   r9
+            phi   r7
+            ldi   1
+            plo   r7
+            call  move_cursor
+            pop   r7
 
             call  get_col_offset  ; get the column offset into rc.1
             
-prt_lines:  call  K_INMSG
-              db 27,'[2K',0       ; erase line
-
-            ghi   rc              ; get column offset
+prt_lines:  ghi   rc              ; get column offset
             adi   2               ; add two for the CRLF at eol
             str   r2              ; save column offset +2  into M(X)
             ldn   ra              ; get size of line
-            lbz   rf_done         ; if we hit the end of buffer we are done
+            lbz   rf_eob          ; if we hit the end of buffer we are done
             sm                    ; subtract column offset +2 from line size
             lbnf  ln_skp          ; if line size - (column offset +2) < 0, skip line
             
-            ghi   rc              ; get column offset
-            str   r2              ; save column offset into M(X)                        
-            lda   ra              ; get size again
-            sm                    ; calculate difference, line size - column offset            
             plo   rd              ; set up character counter with difference
+            inc   ra              ; move past size to text
             ghi   rc              ; get column offset
             str   r2              ; save column offset in M(X)
             glo   ra              ; adjust line buffer ptr by offset
@@ -613,13 +656,47 @@ prt_lines:  call  K_INMSG
             ghi   ra              ; add carry flag into high byte
             adci  0
             phi   ra              ; ra now points to first character on-screen
-              
-ln_lp:      lda   ra              ; get character
-            call  K_TYPE          ; print on screen
-            dec   rd              ; count down characters in line
-            glo   rd              ; check counter for end of line
-            lbnz  ln_lp           ; keep going for all characters on screen  
             
+            glo   r9              ; get window width
+            str   r2              ; save in M(X)
+            glo   rd              ; get characters in line
+            sm                    ; subtract width from characters 
+            lbdf  ln_wide         ; if line reaches the edge, nothing to erase
+            ldi   $FF             ; otherwise flag row as not filled
+            phi   rd
+            lbr   ln_lp
+ln_wide:    phi   rd              ; save count of characters past the edge
+            glo   r9              ; and only print up to the edge
+            plo   rd
+              
+ln_lp:      glo   rd              ; check counter for end of line
+            lbz   ln_end          
+            smi   1               ; count down characters in line
+            plo   rd
+            lda   ra              ; get character
+            call  K_TYPE          ; print on screen
+            lbr   ln_lp           ; keep going for all characters on screen  
+            
+ln_end:     ghi   rd              ; check for row not filled
+            xri   $FF
+            lbz   ln_erase
+            ghi   rd              ; otherwise skip characters past the edge
+            str   r2
+            glo   ra
+            add
+            plo   ra
+            ghi   ra
+            adci  0
+            phi   ra
+            lbr   ln_crlf
+
+ln_erase:   call  K_INMSG
+              db 27,'[K',0        ; erase rest of the row
+              
+ln_crlf:    inc   ra              ; move past CRLF to next line
+            inc   ra
+            call  K_INMSG         ; move to next row
+              db 13,10,0
             lbr   ln_cont         ; continue  on
             
 ln_skp:     lda   ra              ; ra points to size, so get size
@@ -631,14 +708,18 @@ ln_skp:     lda   ra              ; ra points to size, so get size
             adci  0
             phi   ra              ; update high byte
             
-            call  K_INMSG         ; output CRLF to skip line
-              db 10,13,0
+            call  K_INMSG         ; erase the row and move to next row
+              db 27,'[K',10,13,0
 
 ln_cont:    inc   r8              ; add one to current line value
 
             dec   rc              ; count down
             glo   rc              ; check counter
             lbnz  prt_lines       ; if zero done with text buffer  
+            lbr   rf_done
+
+rf_eob:     call  K_INMSG
+              db 27,'[K',0        ; erase the row after the last line
 
 rf_done:    call  get_cursor      ; restore cursor
             call  move_cursor     ; position cursor
@@ -660,7 +741,8 @@ rf_size:    phi   rb              ; save line size in rb.1
             ani   REFRESH_MASK    ; clear refresh bit and status bit
             str   rf              ; save back in memory 
 
-            pop   rd              ; restore registers used
+            pop   r9              ; restore registers used
+            pop   rd
             pop   rf
             return
             endp 

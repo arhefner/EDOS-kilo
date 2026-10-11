@@ -298,6 +298,7 @@ no_rtscrl:  call  set_cursor      ; update cursor position
             ; Uses:
             ;   rf - buffer pointer 
             ;   rc.1 - column offset
+            ;   r9.0 - columns left on the row
             ;   r7 - cursor position
             ; Returns: (None)
             ;-------------------------------------------------------            
@@ -309,6 +310,7 @@ no_rtscrl:  call  set_cursor      ; update cursor position
             lbz   rl_done         ; if no changes, exit 
             
             push  rd              ; save registers used
+            push  r9
             push  r7              ; save cursor position  
 
             call  get_col_offset  ; get column offset in rc.1
@@ -322,6 +324,13 @@ no_rtscrl:  call  set_cursor      ; update cursor position
             ldi   0
 rl_start:   adi   1               ; cursor values begin at 1, not 0
             plo   r7              ; set cursor to first column to refresh
+            
+            str   r2              ; save column in M(X)
+            load  r9, size_w      ; get window width
+            ldn   r9
+            sm                    ; subtract column from width
+            adi   1               ; to get columns left on the row
+            plo   r9
                         
             glo   rd              ; get first position to refresh
             str   r2              ; save in M(X)
@@ -355,12 +364,17 @@ rl_one:     ldi   0               ; flag cursor as not hidden
 
 rl_move:    call  move_cursor     ; position cursor at first column to refresh
 
-rl_next:    lda   rf              ; get character from buffer
+rl_next:    glo   r9              ; check for the right edge of the screen
+            lbz   rl_shown        ; nothing to erase if row has been filled
+            lda   rf              ; get character from buffer
             plo   re              ; keep a copy of character
             smi   ' '             ; anything below a space is the end of line
             lbnf  rl_eol          
             glo   re
             call  K_TYPE          ; print character to screen          
+            glo   r9              ; count down columns left
+            smi   1
+            plo   r9
             lbr   rl_next
 
 rl_eol:     ghi   rd              ; check for anything to erase
@@ -375,7 +389,8 @@ rl_shown:   pop   r7              ; restore cursor position
             call  K_INMSG
               db 27,'[?25h',0     ; show cursor        
 
-rl_exit:    pop   rd              ; restore registers
+rl_exit:    pop   r9              ; restore registers
+            pop   rd
 rl_done:    pop   rf              
             return 
             endp  

@@ -27,6 +27,9 @@
 #include include/kernel_api.inc
 #include include/kilo_def.inc
 
+            extrn   row_offset
+            extrn   col_offset
+
 
 ; *******************************************************************
 ; ***         Main Key Handler for Kilo Editor                    ***
@@ -49,6 +52,25 @@ c_loop:     load  rf, c_col       ; save where the cursor is in the text
             str   rf
             inc   rf
             ldi   0               ; no change made to the line by this key yet
+            str   rf
+            inc   rf
+            str   rf              ; and no lines added or removed
+            inc   rf
+
+            ;----- save what decides how much of the screen a refresh needs
+            load  rd, row_offset  ; row offset
+            lda   rd
+            str   rf
+            inc   rf
+            ldn   rd
+            str   rf
+            inc   rf
+            load  rd, col_offset  ; column offset
+            ldn   rd
+            str   rf
+            inc   rf
+            call  get_cursor      ; cursor row
+            ghi   r7
             str   rf
             
             call  K_READ          ; get a keyvalue             
@@ -246,7 +268,7 @@ c_tab:      call  do_tab
             lbr   c_line
             
 c_enter:    call  do_enter
-            lbr   c_update
+            lbr   c_lines
 
 c_file:     call  do_file         ; prompt and do file functions
             lbdf  c_quit          ; DF=1 means quit program
@@ -258,7 +280,7 @@ c_page:     call  do_page         ; prompt and do page functions
             
 c_linef:    call  do_line
             lbdf  c_loop          ; show message until key pressed
-            lbr   c_update        ; update screen after line function
+            lbr   c_lines         ; update screen after line function
 
 c_cursor:   call  do_cursor
             lbdf  c_loop          ; show message until key pressed
@@ -276,7 +298,7 @@ c_mode:     call  do_mode          ; toggle the editor mode
             lbr   c_loop
  
 c_del:      call  do_del
-            lbdf  c_update        ; if we deleted a line then update display
+            lbdf  c_lines         ; if we deleted a line then update display
             lbr   c_line          ; otherwise just update line
              
 c_end:      call  do_end
@@ -331,7 +353,51 @@ c_update:   load  rf, e_state     ; get state byte
             ani   REFRESH_BIT     ; check for refresh
             lbz   c_move          ; if no refrsh, just move cursor                        
 
-            call  refresh_screen  ; refresh screen
+            ;----- A key that adds or removes a line changes nothing above
+            ;----- the cursor, so only the rows from the cursor's row down
+            ;----- are refreshed, from where it was or where it is now,  
+            ;----- whichever is higher.  If the screen has scrolled, all  
+            ;----- of it is refreshed.
+            load  rf, c_col       ; point to lines changed flag
+            inc   rf
+            inc   rf
+            inc   rf
+            lda   rf
+            lbz   c_all           ; refresh all for any other key
+
+            load  rd, row_offset  ; check row offset is as it was
+            lda   rd
+            str   r2
+            lda   rf
+            xor
+            lbnz  c_all
+            ldn   rd
+            str   r2
+            lda   rf
+            xor
+            lbnz  c_all
+            load  rd, col_offset  ; check column offset is as it was
+            ldn   rd
+            str   r2
+            lda   rf
+            xor
+            lbnz  c_all
+            
+            call  get_cursor      ; get cursor row
+            ghi   r7
+            str   r2
+            ldn   rf              ; get cursor row before key
+            sm                    ; subtract row now from row before
+            lbnf  c_above         ; if it was higher before, begin there
+            ghi   r7              ; otherwise begin at row now
+            lbr   c_top
+c_above:    ldn   rf
+c_top:      plo   re
+            load  rd, rf_top      ; set first row to refresh
+            glo   re
+            str   rd
+
+c_all:      call  refresh_screen  ; refresh screen
 
             ;----- the screen is drawn from the text buffer, so a change
             ;----- this key made to the line has to be drawn again 
@@ -386,6 +452,15 @@ c_rdy:      call  get_cursor
             call  move_cursor     ; move to new position
             lbr   c_loop
 
+            ;----- flag lines as added or removed by this key
+c_lines:    load  rf, c_col       
+            inc   rf
+            inc   rf
+            inc   rf
+            ldi   1               
+            str   rf
+            lbr   c_update
+
             ;----- A key that changes the line leaves everything before
             ;----- the change as it was on the screen, so the line is 
             ;----- redrawn from the column before the key or the column 
@@ -414,7 +489,13 @@ c_line:     load  rf, c_col       ; point to line before the key
             phi   rd
             lbr   cl_draw
 
-cl_all:     ldi   0               ; redraw from beginning of line
+cl_all:     load  rf, c_col       ; a different line may mean one was removed
+            inc   rf
+            inc   rf
+            inc   rf
+            ldi   1               ; flag lines as added or removed
+            str   rf
+            ldi   0               ; redraw from beginning of line
             lbr   cl_erase
 cl_here:    glo   rb              ; redraw from current column
 cl_erase:   plo   rd
@@ -437,6 +518,10 @@ c_rpt:        db 0                ; repeated character
 c_col:        db 0                ; character position before key
               db 0                ; current line before key (low byte)
               db 0                ; non-zero if key changed the line
+              db 0                ; non-zero if key added or removed lines
+              dw 0                ; row offset before key
+              db 0                ; column offset before key
+              db 0                ; cursor row before key
 msg_err:      db '*** An Error Occurred ***',0
               public msg_err
             endp               
