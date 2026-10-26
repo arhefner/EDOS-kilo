@@ -21,6 +21,11 @@ The editor is assembled and linked with the [Asm/02](https://github.com/arhefner
 make          # assemble src/*.asm and link ./kilo
 make clean
 ```
+On Windows, build with nmake and `Makefile.win` instead. It expects `asm02.exe` and `link02.exe` to be on the `PATH`.
+```
+nmake /F Makefile.win
+nmake /F Makefile.win clean
+```
 Copy the `kilo` file that this produces into the `/bin` directory of an ELF-DOS volume.
 
 `elfdos-sdk/` is a copy of the ELF-DOS SDK that the editor is built against; see `elfdos-sdk/MANIFEST.txt` for the ELF-DOS version it came from, and `elfdos-sdk/DEVELOPER_GUIDE.md` for the program interface. Rebuild the editor against a newer SDK if the ELF-DOS kernel's minor version changes.
@@ -216,6 +221,7 @@ Repository Contents
   * kilo_def.inc - Definitions for the kilo source files.
 * **/elfdos-sdk/**  -- The ELF-DOS SDK: kernel, BIOS and opcode definitions, library modules and the Developer's Guide.
 * **Makefile** -- Builds the editor.
+* **Makefile.win** -- Builds the editor on Windows with nmake.
 
 References
 ----------

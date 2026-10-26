@@ -1,0 +1,52 @@
+#
+# Makefile.win - EDOS-kilo build (Windows nmake port)
+#
+# Usage:
+#   nmake /F Makefile.win          assemble everything in src\ and link .\kilo
+#   nmake /F Makefile.win clean    remove all generated files
+#
+# Mirrors the project's Linux Makefile. Assumes asm02.exe and link02.exe
+# are already on PATH; set ASM and LINK on the command line to use them
+# from somewhere else.
+#
+# nmake has no $(patsubst ...), so PRGS lists the modules out in full.
+# Keep it in the same order as MODULES in the Linux Makefile.
+#
+# Run nmake from cmd.exe or PowerShell. A POSIX shell (git-bash, MSYS)
+# can turn a bare "/F" into "F:/" before nmake sees it.
+
+ASM  = asm02
+LINK = link02
+
+ASMFLAGS = -L -C -I..\elfdos-sdk
+LFLAGS   = -b -be
+
+# kilo.prg must be first: it holds the program header at PROG_BASE.
+# kilo_data.prg must be last: the text buffer starts where the program
+# ends and grows upward from there.
+PRGS = src\kilo.prg src\kilo_util.prg src\kilo_cfg.prg src\kilo_line.prg \
+	src\kilo_str.prg src\kilo_buf.prg src\kilo_keys.prg \
+	src\kilo_text.prg src\kilo_move.prg src\kilo_edit.prg \
+	src\kilo_input.prg src\kilo_prmpt.prg src\kilo_file.prg \
+	src\kilo_spill.prg src\kilo_dos.prg src\kilo_data.prg
+
+HEADERS = src\include\kilo_def.inc src\kilo_dbg.inc \
+	elfdos-sdk\include\opcodes.def elfdos-sdk\include\bios.inc \
+	elfdos-sdk\include\kernel_api.inc
+
+.SUFFIXES: .asm .prg
+
+all: kilo
+
+kilo: $(PRGS)
+	$(LINK) $(LFLAGS) -o kilo $(PRGS)
+	-del /F /Q kilo.lkb
+
+$(PRGS): $(HEADERS)
+
+{src}.asm{src}.prg:
+	cd src && $(ASM) $(ASMFLAGS) $(<F)
+
+clean:
+	-del /F /Q kilo kilo.lkb
+	-del /F /Q src\*.prg src\*.lst src\*.build
